@@ -2,8 +2,11 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 func GET(ctx context.Context, url string, option ...Option) error {
@@ -22,23 +25,32 @@ func POSTBinary(ctx context.Context, url string, file []byte, option ...Option) 
 	return do(ctx, "POST", url, append(option, WithBinaryBody(file))...)
 }
 
-func POSTMultipart(ctx context.Context, url string, file map[string][]byte, source map[string]interface{}, option ...Option) error {
-	return do(ctx, "POST", url, append(option, WithMultipartBody(file, source))...)
+func POSTMultipart(ctx context.Context, url string, source map[string]interface{}, file map[string][]byte, option ...Option) error {
+	return do(ctx, "POST", url, append(option, WithMultipartBody(source, file))...)
 }
 
-func getAssertString(data interface{}) string {
-	if str, ok := data.(string); ok {
-		return str
-	} else if intValue, ok := data.(int); ok {
-		return strconv.Itoa(intValue)
-	} else if intValue, ok := data.(int32); ok {
-		return strconv.FormatInt(int64(intValue), 10)
-	} else if intValue, ok := data.(float64); ok {
-		return strconv.FormatFloat(intValue, 'f', -1, 64)
-	} else if intValue, ok := data.(int64); ok {
-		return strconv.FormatInt(intValue, 10)
+func getString(data interface{}) string {
+	v := reflect.ValueOf(data)
+	switch v.Kind() {
+	case reflect.String:
+		return v.String()
+	case reflect.Int, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10)
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case reflect.Struct, reflect.Slice, reflect.Map:
+		m, _ := json.Marshal(data)
+		return string(m)
 	}
 	return ""
+}
+
+func getStrings(sep string, data ...interface{}) string {
+	stringList := make([]string, len(data))
+	for _, d := range data {
+		stringList = append(stringList, getString(d))
+	}
+	return strings.Join(stringList, sep)
 }
 
 func do(ctx context.Context, method string, url string, option ...Option) error {

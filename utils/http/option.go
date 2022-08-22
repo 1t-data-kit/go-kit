@@ -46,6 +46,9 @@ func WithContentType(typ string) Option {
 		Type: OptionTypeRequest,
 		Request: func(request *http.Request, trace *Trace) error {
 			request.Header.Set("Content-Type", typ)
+			if trace != nil {
+				trace.Record(request, "")
+			}
 			return nil
 		},
 	}
@@ -56,6 +59,21 @@ func WithAuthorization(authorization string) Option {
 		Type: OptionTypeRequest,
 		Request: func(request *http.Request, trace *Trace) error {
 			request.Header.Set("Authorization", authorization)
+			if trace != nil {
+				trace.Record(request, "")
+			}
+			return nil
+		},
+	}
+}
+
+func WithNoBody() Option {
+	return Option{
+		Type: OptionTypeRequest,
+		Request: func(request *http.Request, trace *Trace) error {
+			if trace != nil {
+				trace.Record(request, "")
+			}
 			return nil
 		},
 	}
@@ -69,14 +87,13 @@ func WithBody(source map[string]interface{}) Option {
 
 			values := url.Values{}
 			for k, v := range source {
-				values.Add(k, getAssertString(v))
+				values.Add(k, getString(v))
 			}
-			request.Body = ioutil.NopCloser(strings.NewReader(values.Encode()))
+			valueString := values.Encode()
+			request.Body = ioutil.NopCloser(strings.NewReader(valueString))
 
 			if trace != nil {
-				trace.Url = request.URL.String()
-				trace.Header = request.Header
-				trace.Request = source
+				trace.Record(request, valueString)
 			}
 
 			return nil
@@ -94,9 +111,7 @@ func WithJSONBody(source interface{}) Option {
 			request.Body = ioutil.NopCloser(bytes.NewReader(body))
 
 			if trace != nil {
-				trace.Url = request.URL.String()
-				trace.Header = request.Header
-				trace.Request = source
+				trace.Record(request, string(body))
 			}
 
 			return nil
@@ -104,7 +119,7 @@ func WithJSONBody(source interface{}) Option {
 	}
 }
 
-func WithMultipartBody(file map[string][]byte, source map[string]interface{}) Option {
+func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Option {
 	return Option{
 		Type: OptionTypeRequest,
 		Request: func(request *http.Request, trace *Trace) error {
@@ -112,6 +127,7 @@ func WithMultipartBody(file map[string][]byte, source map[string]interface{}) Op
 			writer := multipart.NewWriter(buff)
 			defer writer.Close()
 
+			fileInfo := make([]string, len(file))
 			for name, content := range file {
 				fileWriter, err := writer.CreateFormFile(name, name)
 				if err != nil {
@@ -120,18 +136,17 @@ func WithMultipartBody(file map[string][]byte, source map[string]interface{}) Op
 				if _, err = fileWriter.Write(content); err != nil {
 					return err
 				}
+				fileInfo = append(fileInfo, fmt.Sprintf("(Binary[%s][%d bytes])", name, len(content)))
 			}
 			for field, value := range source {
-				writer.WriteField(field, getAssertString(value))
+				writer.WriteField(field, getString(value))
 			}
 
 			request.Body = ioutil.NopCloser(buff)
 			request.Header.Set("Content-Type", writer.FormDataContentType())
 
 			if trace != nil {
-				trace.Url = request.URL.String()
-				trace.Header = request.Header
-				trace.Request = source
+				trace.Record(request, source, strings.Join(fileInfo, ""))
 			}
 
 			return nil
@@ -147,9 +162,7 @@ func WithBinaryBody(data []byte) Option {
 			request.Header.Set("Content-Type", "application/octet-stream")
 
 			if trace != nil {
-				trace.Url = request.URL.String()
-				trace.Header = request.Header
-				trace.Request = fmt.Sprintf("Binary[%d bytes]", len(data))
+				trace.Record(request, fmt.Sprintf("(Binary[%d bytes])", len(data)))
 			}
 
 			return nil
@@ -168,21 +181,14 @@ func WithResponseData(data *string) Option {
 	return Option{
 		Type: OptionTypeResponse,
 		Response: func(response *http.Response, trace *Trace) error {
-			if trace != nil {
-				trace.HttpCode = response.StatusCode
-			}
-			body, err := ioutil.ReadAll(response.Body)
-			if err != nil {
-				return err
-			}
+			body, _ := ioutil.ReadAll(response.Body)
 			bodyString := string(body)
-			if trace != nil {
-				trace.Response = bodyString
-			}
 			if data != nil {
 				*data = bodyString
 			}
-
+			if trace != nil {
+				trace.Record(response, bodyString)
+			}
 			return nil
 		},
 	}
@@ -192,18 +198,12 @@ func WithResponseJSONData(data interface{}) Option {
 	return Option{
 		Type: OptionTypeResponse,
 		Response: func(response *http.Response, trace *Trace) error {
+			body, _ := ioutil.ReadAll(response.Body)
 			if trace != nil {
-				trace.HttpCode = response.StatusCode
-			}
-			body, err := ioutil.ReadAll(response.Body)
-			if err != nil {
-				return err
-			}
-			if trace != nil {
-				trace.Response = string(body)
+				trace.Record(response, string(body))
 			}
 			if data != nil {
-				if err = json.Unmarshal(body, &data); err != nil {
+				if err := json.Unmarshal(body, &data); err != nil {
 					return err
 				}
 			}
@@ -239,7 +239,7 @@ func (list optionList) Request(request *http.Request) error {
 		}
 	}
 	if !stat {
-		WithBody(nil).Request(request, trace)
+		WithNoBody().Request(request, trace)
 	}
 
 	return nil
