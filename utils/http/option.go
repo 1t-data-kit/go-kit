@@ -154,15 +154,15 @@ func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Op
 	}
 }
 
-func WithBinaryBody(data []byte) Option {
+func WithBinaryBody(file []byte) Option {
 	return Option{
 		Type: OptionTypeRequest,
 		Request: func(request *http.Request, trace *Trace) error {
-			request.Body = ioutil.NopCloser(bytes.NewReader(data))
+			request.Body = ioutil.NopCloser(bytes.NewReader(file))
 			request.Header.Set("Content-Type", "application/octet-stream")
 
 			if trace != nil {
-				trace.Record(request, fmt.Sprintf("(Binary[%d bytes])", len(data)))
+				trace.Record(request, fmt.Sprintf("(Binary[%d bytes])", len(file)))
 			}
 
 			return nil
