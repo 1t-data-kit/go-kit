@@ -1,0 +1,8 @@
+go.sum
+.idea/
+dist/
+*_linux
+vendor/
+*/build/dist
+*/.DS_Store/
+.DS_Store
