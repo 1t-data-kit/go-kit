@@ -46,7 +46,7 @@ func getString(data interface{}) string {
 }
 
 func getStrings(sep string, data ...interface{}) string {
-	stringList := make([]string, len(data))
+	stringList := make([]string, 0)
 	for _, d := range data {
 		stringList = append(stringList, getString(d))
 	}

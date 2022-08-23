@@ -23,10 +23,10 @@ const (
 
 type Option struct {
 	Type     OptionType `json:"type"`
-	trace    *Trace
+	trace    trace
 	Client   func(client *http.Client)
-	Request  func(request *http.Request, trace *Trace) error
-	Response func(response *http.Response, trace *Trace) error
+	Request  func(request *http.Request, trace trace) error
+	Response func(response *http.Response, trace trace) error
 }
 
 /*
@@ -44,10 +44,11 @@ func WithTimeout(duration time.Duration) Option {
 func WithContentType(typ string) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			request.Header.Set("Content-Type", typ)
 			if trace != nil {
-				trace.Record(request, "")
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
 			}
 			return nil
 		},
@@ -57,10 +58,11 @@ func WithContentType(typ string) Option {
 func WithAuthorization(authorization string) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			request.Header.Set("Authorization", authorization)
 			if trace != nil {
-				trace.Record(request, "")
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
 			}
 			return nil
 		},
@@ -70,9 +72,10 @@ func WithAuthorization(authorization string) Option {
 func WithNoBody() Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			if trace != nil {
-				trace.Record(request, "")
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
 			}
 			return nil
 		},
@@ -82,7 +85,7 @@ func WithNoBody() Option {
 func WithBody(source map[string]interface{}) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 			values := url.Values{}
@@ -93,7 +96,9 @@ func WithBody(source map[string]interface{}) Option {
 			request.Body = ioutil.NopCloser(strings.NewReader(valueString))
 
 			if trace != nil {
-				trace.Record(request, valueString)
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+				trace.SetRequest(valueString)
 			}
 
 			return nil
@@ -104,14 +109,16 @@ func WithBody(source map[string]interface{}) Option {
 func WithJSONBody(source interface{}) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			request.Header.Set("Content-Type", "application/json")
 
 			body, _ := json.Marshal(source)
 			request.Body = ioutil.NopCloser(bytes.NewReader(body))
 
 			if trace != nil {
-				trace.Record(request, string(body))
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+				trace.SetRequest(string(body))
 			}
 
 			return nil
@@ -122,7 +129,7 @@ func WithJSONBody(source interface{}) Option {
 func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			buff := &bytes.Buffer{}
 			writer := multipart.NewWriter(buff)
 			defer writer.Close()
@@ -146,7 +153,9 @@ func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Op
 			request.Header.Set("Content-Type", writer.FormDataContentType())
 
 			if trace != nil {
-				trace.Record(request, source, strings.Join(fileInfo, ""))
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+				trace.SetRequest(getStrings(",", source, strings.Join(fileInfo, "")))
 			}
 
 			return nil
@@ -157,12 +166,14 @@ func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Op
 func WithBinaryBody(file []byte) Option {
 	return Option{
 		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace *Trace) error {
+		Request: func(request *http.Request, trace trace) error {
 			request.Body = ioutil.NopCloser(bytes.NewReader(file))
 			request.Header.Set("Content-Type", "application/octet-stream")
 
 			if trace != nil {
-				trace.Record(request, fmt.Sprintf("(Binary[%d bytes])", len(file)))
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+				trace.SetRequest(fmt.Sprintf("(Binary[%d bytes])", len(file)))
 			}
 
 			return nil
@@ -170,7 +181,7 @@ func WithBinaryBody(file []byte) Option {
 	}
 }
 
-func WithTrace(trace *Trace) Option {
+func WithTrace(trace trace) Option {
 	return Option{
 		Type:  OptionTypeLog,
 		trace: trace,
@@ -180,14 +191,15 @@ func WithTrace(trace *Trace) Option {
 func WithResponseData(data *string) Option {
 	return Option{
 		Type: OptionTypeResponse,
-		Response: func(response *http.Response, trace *Trace) error {
+		Response: func(response *http.Response, trace trace) error {
 			body, _ := ioutil.ReadAll(response.Body)
 			bodyString := string(body)
 			if data != nil {
 				*data = bodyString
 			}
 			if trace != nil {
-				trace.Record(response, bodyString)
+				trace.SetHttpCode(response.StatusCode)
+				trace.SetResponse(bodyString)
 			}
 			return nil
 		},
@@ -197,10 +209,11 @@ func WithResponseData(data *string) Option {
 func WithResponseJSONData(data interface{}) Option {
 	return Option{
 		Type: OptionTypeResponse,
-		Response: func(response *http.Response, trace *Trace) error {
+		Response: func(response *http.Response, trace trace) error {
 			body, _ := ioutil.ReadAll(response.Body)
 			if trace != nil {
-				trace.Record(response, string(body))
+				trace.SetHttpCode(response.StatusCode)
+				trace.SetResponse(string(body))
 			}
 			if data != nil {
 				if err := json.Unmarshal(body, &data); err != nil {
@@ -228,18 +241,18 @@ func (list optionList) Client() *http.Client {
 
 func (list optionList) Request(request *http.Request) error {
 	stat := false
-	trace := list.Trace()
+	t := list.Trace()
 	for _, option := range list {
 		if option.Type != OptionTypeRequest {
 			continue
 		}
 		stat = true
-		if err := option.Request(request, trace); err != nil {
+		if err := option.Request(request, t); err != nil {
 			return err
 		}
 	}
 	if !stat {
-		WithNoBody().Request(request, trace)
+		WithNoBody().Request(request, t)
 	}
 
 	return nil
@@ -247,23 +260,23 @@ func (list optionList) Request(request *http.Request) error {
 
 func (list optionList) Response(response *http.Response) error {
 	stat := false
-	trace := list.Trace()
+	t := list.Trace()
 	for _, option := range list {
 		if option.Type != OptionTypeResponse {
 			continue
 		}
 		stat = true
-		if err := option.Response(response, trace); err != nil {
+		if err := option.Response(response, t); err != nil {
 			return err
 		}
 	}
 	if !stat {
-		WithResponseData(nil).Response(response, trace)
+		WithResponseData(nil).Response(response, t)
 	}
 	return nil
 }
 
-func (list optionList) Trace() *Trace {
+func (list optionList) Trace() trace {
 	for _, option := range list {
 		if option.Type != OptionTypeLog || option.trace == nil {
 			continue
