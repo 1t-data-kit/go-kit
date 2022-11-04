@@ -6,7 +6,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	tr := NewTraceDemo()
+	tr := NewDefaultTrace()
 	var response string
 	if err := GET(
 		context.TODO(),
@@ -22,21 +22,17 @@ func TestGet(t *testing.T) {
 }
 
 func TestPOST(t *testing.T) {
-	tr := NewTraceDemo()
+	tr := NewDefaultTrace()
 	var response string
 	type a struct {
 		Wd string `json:"wd"`
 	}
-	if err := POSTMultipart(
+	if err := POSTJson(
 		context.TODO(),
 		"https://www.baidu.com",
 		map[string]interface{}{
-			"wd": "xxx",
+			"wd": "xxx<aaa>&bbb",
 			"a":  243,
-		},
-		map[string][]byte{
-			"file1": []byte{1, 2, 3, 4},
-			"file2": []byte{3, 4, 5},
 		},
 		//[]byte{1, 2, 3, 4, 5},
 		WithTrace(tr),

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 )
 
-type TraceDemo struct {
+type DefaultTrace struct {
 	Url      string `json:"url"`
 	Header   string `json:"header"`
 	Request  string `json:"request"`
@@ -12,31 +12,31 @@ type TraceDemo struct {
 	HttpCode int    `json:"httpCode"`
 }
 
-func NewTraceDemo() *TraceDemo {
-	return &TraceDemo{}
+func NewDefaultTrace() *DefaultTrace {
+	return &DefaultTrace{}
 }
 
-func (demo *TraceDemo) String() string {
-	data, _ := json.Marshal(demo)
+func (defaultTrace *DefaultTrace) String() string {
+	data, _ := json.Marshal(defaultTrace)
 	return string(data)
 }
 
-func (demo *TraceDemo) SetUrl(url string) {
-	demo.Url = url
+func (defaultTrace *DefaultTrace) SetUrl(url string) {
+	defaultTrace.Url = url
 }
 
-func (demo *TraceDemo) SetHeader(header string) {
-	demo.Header = header
+func (defaultTrace *DefaultTrace) SetHeader(header string) {
+	defaultTrace.Header = header
 }
 
-func (demo *TraceDemo) SetRequest(request string) {
-	demo.Request = request
+func (defaultTrace *DefaultTrace) SetRequest(request string) {
+	defaultTrace.Request = request
 }
 
-func (demo *TraceDemo) SetResponse(response string) {
-	demo.Response = response
+func (defaultTrace *DefaultTrace) SetResponse(response string) {
+	defaultTrace.Response = response
 }
 
-func (demo *TraceDemo) SetHttpCode(code int) {
-	demo.HttpCode = code
+func (defaultTrace *DefaultTrace) SetHttpCode(code int) {
+	defaultTrace.HttpCode = code
 }

@@ -106,13 +106,40 @@ func WithBody(source map[string]interface{}) Option {
 	}
 }
 
-func WithJSONBody(source interface{}) Option {
+func WithEscapeJSONBody(source interface{}) Option {
 	return Option{
 		Type: OptionTypeRequest,
 		Request: func(request *http.Request, trace trace) error {
 			request.Header.Set("Content-Type", "application/json")
 
 			body, _ := json.Marshal(source)
+			request.Body = ioutil.NopCloser(bytes.NewReader(body))
+
+			if trace != nil {
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+				trace.SetRequest(string(body))
+			}
+
+			return nil
+		},
+	}
+}
+
+func WithJSONBody(source interface{}) Option {
+	return Option{
+		Type: OptionTypeRequest,
+		Request: func(request *http.Request, trace trace) error {
+			request.Header.Set("Content-Type", "application/json")
+
+			buf := bytes.NewBuffer([]byte{})
+			encoder := json.NewEncoder(buf)
+			encoder.SetEscapeHTML(false)
+			if err := encoder.Encode(source); err != nil {
+				return err
+			}
+
+			body := buf.Bytes()
 			request.Body = ioutil.NopCloser(bytes.NewReader(body))
 
 			if trace != nil {

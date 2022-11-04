@@ -21,6 +21,10 @@ func POSTJson(ctx context.Context, url string, source interface{}, option ...Opt
 	return do(ctx, "POST", url, append(option, WithJSONBody(source))...)
 }
 
+func POSTJsonWithEscape(ctx context.Context, url string, source interface{}, option ...Option) error {
+	return do(ctx, "POST", url, append(option, WithEscapeJSONBody(source))...)
+}
+
 func POSTBinary(ctx context.Context, url string, file []byte, option ...Option) error {
 	return do(ctx, "POST", url, append(option, WithBinaryBody(file))...)
 }
