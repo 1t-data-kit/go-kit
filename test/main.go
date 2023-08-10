@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/1t-data-kit/go-kit/base"
 	"github.com/1t-data-kit/go-kit/framework"
-	"github.com/1t-data-kit/go-kit/framework/module/signal"
 	"github.com/sirupsen/logrus"
 	"syscall"
 	"time"
@@ -37,15 +37,15 @@ func (_a *a) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (_a *a) SignalHandlersMap() signal.HandlersMap {
-	return signal.HandlersMap{
-		syscall.SIGTERM: []signal.Handler{
+func (_a *a) SignalHandlersMap() base.HandlersMap {
+	return base.HandlersMap{
+		syscall.SIGTERM: []base.Handler{
 			func(ctx context.Context) error {
 				fmt.Printf("%s[%s] sigterm\n", _a.GetName(), _a.GetName())
 				return nil
 			},
 		},
-		syscall.SIGQUIT: []signal.Handler{
+		syscall.SIGQUIT: []base.Handler{
 			func(ctx context.Context) error {
 				fmt.Printf("%s[%s] siqquit\n", _a.GetName(), _a.GetName())
 				return nil

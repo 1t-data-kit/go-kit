@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
-	"github.com/1t-data-kit/go-kit/framework/module/registry/network"
-	"github.com/1t-data-kit/go-kit/framework/module/registry/object"
-	signalLib "github.com/1t-data-kit/go-kit/framework/module/signal"
+	"github.com/1t-data-kit/go-kit/framework/registry/network"
+	"github.com/1t-data-kit/go-kit/framework/registry/object"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -20,7 +19,7 @@ var (
 
 type application struct {
 	modules           []base.Module
-	signalHandlersMap signalLib.HandlersMap
+	signalHandlersMap base.SignalHandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
 
@@ -30,7 +29,7 @@ type application struct {
 func NewApplication(options ...base.Option) *application {
 	_once.Do(func() {
 		_instance = &application{
-			signalHandlersMap: make(signalLib.HandlersMap),
+			signalHandlersMap: make(base.SignalHandlersMap),
 		}
 	})
 
@@ -63,7 +62,7 @@ func (app *application) init(options ...base.Option) {
 		return false
 	}).Values()...)
 	app.appendSignalHandlersMap(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(signalLib.HandlersMap); ok {
+		if _, ok := item.Value().(base.SignalHandlersMap); ok {
 			return true
 		}
 		return false
@@ -81,12 +80,9 @@ func (app *application) appendModels(modules ...interface{}) *application {
 
 func (app *application) appendSignalHandlersMap(signalsMaps ...interface{}) *application {
 	for _, signalsMap := range signalsMaps {
-		if _signalsMap, ok := signalsMap.(signalLib.HandlersMap); ok {
+		if _signalsMap, ok := signalsMap.(base.SignalHandlersMap); ok {
 			for _signal, handlers := range _signalsMap {
-				if _, exists := app.signalHandlersMap[_signal]; !exists {
-					app.signalHandlersMap[_signal] = make([]signalLib.Handler, 0)
-				}
-				app.signalHandlersMap[_signal] = append(app.signalHandlersMap[_signal], handlers...)
+				app.signalHandlersMap.Append(_signal, handlers...)
 			}
 		}
 	}
