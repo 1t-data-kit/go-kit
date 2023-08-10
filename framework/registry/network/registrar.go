@@ -4,19 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
-	"github.com/1t-data-kit/go-kit/framework/service"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	etcdClient "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/naming/endpoints"
 	"time"
 )
-
-type endpoint interface {
-	Name() string
-	Address() string
-	MustRegisterNetwork() bool
-}
 
 type Registrar struct {
 	etcd  *etcdClient.Client
@@ -65,14 +58,11 @@ func (r *Registrar) getHalfTTLSeconds() time.Duration {
 	return time.Duration(timeout) * time.Second
 }
 
-func (r *Registrar) Register(ctx context.Context, services ...service.Service) {
-	if len(services) == 0 {
-		return
-	}
-	for _, service := range services {
-		_endpoint, ok := service.(endpoint)
-		if !ok || !_endpoint.MustRegisterNetwork() {
-			logrus.Infof("registry.network.Registrar.Register ignore: %s[%s] not a endpoint or MustRegisterNetwork() has be returned false", service.Name(), service.Type())
+func (r *Registrar) Register(ctx context.Context, endpoints ...Endpoint) {
+	for _, endpoint := range endpoints {
+		_endpoint := endpoint
+		if !_endpoint.MustRegisterNetwork() {
+			logrus.Infof("registry.network.Registrar.Register ignore: %s MustRegisterNetwork() has be returned false", _endpoint.Name())
 			continue
 		}
 
@@ -96,7 +86,7 @@ func (r *Registrar) Register(ctx context.Context, services ...service.Service) {
 
 }
 
-func (r *Registrar) waitEndpointStart(_endpoint endpoint) {
+func (r *Registrar) waitEndpointStart(_endpoint Endpoint) {
 	var retry int
 	interval := r.getHalfTTLSeconds()
 	for {

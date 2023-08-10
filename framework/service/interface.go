@@ -5,7 +5,7 @@ import (
 	"github.com/1t-data-kit/go-kit/framework/signal"
 )
 
-type Service interface {
+type Interface interface {
 	Name() string
 	Type() string
 	MustRegisterNetwork() bool

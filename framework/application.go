@@ -20,7 +20,7 @@ var (
 )
 
 type application struct {
-	services          []service.Service
+	services          []service.Interface
 	signalHandlersMap signal.HandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
@@ -58,7 +58,7 @@ func (app *application) init(options ...base.Option) {
 		app.objectRegistrar = registrars[len(registrars)-1].Value().(*object.Registrar)
 	}
 	app.appendServices(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(service.Service); ok {
+		if _, ok := item.Value().(service.Interface); ok {
 			return true
 		}
 		return false
@@ -73,7 +73,7 @@ func (app *application) init(options ...base.Option) {
 
 func (app *application) appendServices(services ...interface{}) *application {
 	for _, _service := range services {
-		if __service, ok := _service.(service.Service); ok {
+		if __service, ok := _service.(service.Interface); ok {
 			app.services = append(app.services, __service)
 		}
 	}
@@ -124,8 +124,10 @@ func (app *application) Start(ctx context.Context, options ...base.Option) error
 
 		app.appendSignalHandlersMap(__service.SignalHandlersMap())
 		if app.networkRegistrar != nil && __service.MustRegisterNetwork() {
-			app.networkRegistrar.Register(ctx, __service)
-			logrus.Infof("application.NetworkRegistrar register service %s[%s]", __service.Name(), __service.Type())
+			if endpoint, ok := __service.(network.Endpoint); ok {
+				app.networkRegistrar.Register(ctx, endpoint)
+				logrus.Infof("application.NetworkRegistrar register service %s[%s]", __service.Name(), __service.Type())
+			}
 		}
 	}
 	app.signalHandlersMap.Listen(ctx)
