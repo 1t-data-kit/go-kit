@@ -60,32 +60,35 @@ func (r *Registrar) getHalfTTLSeconds() time.Duration {
 	return time.Duration(timeout) * time.Second
 }
 
-func (r *Registrar) Register(ctx context.Context, module base.Module) {
-	if module == nil {
+func (r *Registrar) Register(ctx context.Context, services ...base.Service) {
+	if len(services) == 0 {
 		return
 	}
-	_endpoint, ok := module.(endpoint)
-	if !ok || !_endpoint.MustRegisterNetwork() {
-		logrus.Infof("registry.network.Registrar.Register ignore: %s[%s] not a endpoint or MustRegisterNetwork() has be returned false", module.Name(), module.Type())
-		return
+	for _, service := range services {
+		_endpoint, ok := service.(endpoint)
+		if !ok || !_endpoint.MustRegisterNetwork() {
+			logrus.Infof("registry.network.Registrar.Register ignore: %s[%s] not a endpoint or MustRegisterNetwork() has be returned false", service.Name(), service.Type())
+			continue
+		}
+
+		go func() {
+			var leaseID etcdClient.LeaseID
+			var err error
+			var retry int
+			interval := r.getHalfTTLSeconds()
+			for {
+				r.waitEndpointStart(_endpoint)
+				leaseID, err = r.register(ctx, _endpoint.Name(), _endpoint.Address(), leaseID)
+				if err != nil {
+					retry++
+					logrus.Errorf("registry.network.Registrar.register error: %s[%s]%s ... retry[%d]", _endpoint.Name(), _endpoint.Address(), errors.WithStack(err), retry)
+				}
+				retry = 0
+				time.Sleep(interval)
+			}
+		}()
 	}
 
-	go func() {
-		var leaseID etcdClient.LeaseID
-		var err error
-		var retry int
-		interval := r.getHalfTTLSeconds()
-		for {
-			r.waitEndpointStart(_endpoint)
-			leaseID, err = r.register(ctx, _endpoint.Name(), _endpoint.Address(), leaseID)
-			if err != nil {
-				retry++
-				logrus.Errorf("registry.network.Registrar.register error: %s[%s]%s ... retry[%d]", _endpoint.Name(), _endpoint.Address(), errors.WithStack(err), retry)
-			}
-			retry = 0
-			time.Sleep(interval)
-		}
-	}()
 }
 
 func (r *Registrar) waitEndpointStart(_endpoint endpoint) {

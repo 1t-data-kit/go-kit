@@ -20,11 +20,11 @@ func newA(name string) *a {
 	}
 }
 
-func (_a *a) GetName() string {
+func (_a *a) Name() string {
 	return _a.name
 }
 
-func (_a *a) GetType() string {
+func (_a *a) Type() string {
 	return "a module"
 }
 
@@ -37,17 +37,21 @@ func (_a *a) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (_a *a) SignalHandlersMap() base.HandlersMap {
-	return base.HandlersMap{
-		syscall.SIGTERM: []base.Handler{
+func (_a *a) MustRegisterNetwork() bool {
+	return true
+}
+
+func (_a *a) SignalHandlersMap() base.SignalHandlersMap {
+	return base.SignalHandlersMap{
+		syscall.SIGTERM: []base.SignalHandler{
 			func(ctx context.Context) error {
-				fmt.Printf("%s[%s] sigterm\n", _a.GetName(), _a.GetName())
+				fmt.Printf("%s[%s] sigterm\n", _a.Name(), _a.Type())
 				return nil
 			},
 		},
-		syscall.SIGQUIT: []base.Handler{
+		syscall.SIGQUIT: []base.SignalHandler{
 			func(ctx context.Context) error {
-				fmt.Printf("%s[%s] siqquit\n", _a.GetName(), _a.GetName())
+				fmt.Printf("%s[%s] siqquit\n", _a.Name(), _a.Type())
 				return nil
 			},
 		},
@@ -55,9 +59,13 @@ func (_a *a) SignalHandlersMap() base.HandlersMap {
 }
 
 func main() {
-	app := framework.Application(framework.ModuleOption(newA("a1")), framework.ModuleOption(newA("a2")), framework.ModuleOption(newA("a3")), framework.SignalOption(syscall.SIGTERM, func(ctx context.Context) error {
-		logrus.Info("application outside sigterm invoke")
-		return nil
+	app := framework.NewApplication(base.NewOption(newA("a1")), base.NewOption(newA("a2")), base.NewOption(newA("a3")), base.NewOption(base.SignalHandlersMap{
+		syscall.SIGTERM: []base.SignalHandler{
+			func(ctx context.Context) error {
+				logrus.Info("application outside sigterm invoke")
+				return nil
+			},
+		},
 	}))
 	if err := app.Start(context.Background()); err != nil {
 		panic(err)

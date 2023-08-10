@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type Module interface {
+type Service interface {
 	Name() string
 	Type() string
 	MustRegisterNetwork() bool

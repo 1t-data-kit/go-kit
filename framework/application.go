@@ -18,7 +18,7 @@ var (
 )
 
 type application struct {
-	modules           []base.Module
+	services          []base.Service
 	signalHandlersMap base.SignalHandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
@@ -55,8 +55,8 @@ func (app *application) init(options ...base.Option) {
 	}); len(registrars) > 0 {
 		app.objectRegistrar = registrars[len(registrars)-1].Value().(*object.Registrar)
 	}
-	app.appendModels(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(base.Module); ok {
+	app.appendServices(_options.Filter(func(item base.Option) bool {
+		if _, ok := item.Value().(base.Service); ok {
 			return true
 		}
 		return false
@@ -69,10 +69,10 @@ func (app *application) init(options ...base.Option) {
 	}).Values()...)
 }
 
-func (app *application) appendModels(modules ...interface{}) *application {
-	for _, _module := range modules {
-		if __module, ok := _module.(base.Module); ok {
-			app.modules = append(app.modules, __module)
+func (app *application) appendServices(services ...interface{}) *application {
+	for _, service := range services {
+		if _service, ok := service.(base.Service); ok {
+			app.services = append(app.services, _service)
 		}
 	}
 	return app
@@ -103,27 +103,27 @@ func (app *application) Start(ctx context.Context, options ...base.Option) error
 	}
 
 	app.init(options...)
-	if len(app.modules) == 0 {
-		return fmt.Errorf("application has no module to run")
+	if len(app.services) == 0 {
+		return fmt.Errorf("application has no service to run")
 	}
 
 	var group *errgroup.Group
 	group, ctx = errgroup.WithContext(ctx)
-	for _, module := range app.modules {
-		_module := module
+	for _, service := range app.services {
+		_service := service
 		group.Go(func() error {
-			logrus.Infof("application start module: %s[%s]", _module.Name(), _module.Type())
-			if err := _module.Start(ctx); err != nil {
+			logrus.Infof("application start service: %s[%s]", _service.Name(), _service.Type())
+			if err := _service.Start(ctx); err != nil {
 				return err
 			}
-			logrus.Infof("application stop module %s[%s]", _module.Name(), _module.Type())
+			logrus.Infof("application stop service: %s[%s]", _service.Name(), _service.Type())
 			return nil
 		})
 
-		app.appendSignalHandlersMap(_module.SignalHandlersMap())
-		if app.networkRegistrar != nil && _module.MustRegisterNetwork() {
-			app.networkRegistrar.Register(ctx, _module)
-			logrus.Infof("application.NetworkRegistrar register module %s[%s]", _module.Name(), _module.Type())
+		app.appendSignalHandlersMap(_service.SignalHandlersMap())
+		if app.networkRegistrar != nil && _service.MustRegisterNetwork() {
+			app.networkRegistrar.Register(ctx, _service)
+			logrus.Infof("application.NetworkRegistrar register service %s[%s]", _service.Name(), _service.Type())
 		}
 	}
 	app.signalHandlersMap.Listen(ctx)
@@ -138,8 +138,8 @@ func (app *application) Stop(ctx context.Context) error {
 	}
 
 	_errors := base.NewErrors()
-	for _, module := range app.modules {
-		if err := module.Stop(ctx); err != nil {
+	for _, service := range app.services {
+		if err := service.Stop(ctx); err != nil {
 			_errors.Append(err)
 		}
 	}
