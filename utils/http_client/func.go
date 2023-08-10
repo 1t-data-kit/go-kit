@@ -60,6 +60,13 @@ func getStrings(sep string, data ...interface{}) string {
 func do(ctx context.Context, method string, url string, option ...Option) error {
 	_optionList := optionList(option)
 
+	//uri := url
+	//sep := strings.Index(url, "?")
+	//if sep > -1 {
+	//	uri = url[0:sep]
+	//	_optionList = append(_optionList, WithUrlQuery(url[sep+1:]))
+	//}
+
 	request, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return err

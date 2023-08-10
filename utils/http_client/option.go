@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -77,6 +78,34 @@ func WithNoBody() Option {
 				trace.SetUrl(request.URL.String())
 				trace.SetHeader(getString(request.Header))
 			}
+			return nil
+		},
+	}
+}
+
+func WithUrlQuery(query string) Option {
+	logrus.Debug(query)
+	return Option{
+		Type: OptionTypeRequest,
+		Request: func(request *http.Request, trace trace) error {
+			values := url.Values{}
+			for _, kv := range strings.Split(query, "&") {
+				k := kv
+				v := ""
+				sep := strings.Index(kv, "=")
+				if sep > -1 {
+					k = kv[0:sep]
+					v = kv[sep+1:]
+				}
+				values.Add(k, v)
+			}
+			request.URL.RawQuery = values.Encode()
+
+			if trace != nil {
+				trace.SetUrl(request.URL.String())
+				trace.SetHeader(getString(request.Header))
+			}
+
 			return nil
 		},
 	}

@@ -2,6 +2,7 @@ go.sum
 .idea/
 dist/
 *_linux
+*_test.go
 vendor/
 */build/dist
 */.DS_Store/
