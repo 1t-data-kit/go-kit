@@ -2,7 +2,7 @@ package command
 
 import "github.com/urfave/cli/v2"
 
-type Interface interface {
+type Object interface {
 	Usage() string
 	Command() string
 	Arguments() []cli.Flag
