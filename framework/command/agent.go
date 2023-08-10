@@ -2,8 +2,10 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
 	"github.com/urfave/cli/v2"
+	"os"
 )
 
 type Agent struct {
@@ -18,6 +20,23 @@ func NewAgent(wrappers ...*Wrapper) *Agent {
 
 func NewAgentOption(agent *Agent) base.Option {
 	return base.NewOption(agent)
+}
+
+func (agent *Agent) OsArgsContains(s string) bool {
+	for _, arg := range os.Args {
+		if arg == s {
+			return true
+		}
+	}
+	return false
+}
+
+func (agent *Agent) MustRun() bool {
+	return agent.OsArgsContains(fmt.Sprintf("--%s", cliFlag))
+}
+
+func (agent *Agent) MustDebug() bool {
+	return agent.OsArgsContains(fmt.Sprintf("--%s", debugFlag))
 }
 
 func (agent *Agent) AppendWrappers(wrappers ...*Wrapper) {

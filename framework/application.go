@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
+	"github.com/1t-data-kit/go-kit/framework/command"
 	"github.com/1t-data-kit/go-kit/framework/registry/network"
 	"github.com/1t-data-kit/go-kit/framework/registry/object"
 	"github.com/1t-data-kit/go-kit/framework/service"
@@ -11,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"os"
 	"sync"
 )
 
@@ -24,6 +26,7 @@ type application struct {
 	signalHandlersMap signal.HandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
+	commandAgent      *command.Agent
 
 	running bool
 }
@@ -41,6 +44,7 @@ func NewApplication(options ...base.Option) *application {
 
 func (app *application) init(options ...base.Option) {
 	_options := base.Options(options)
+
 	if registrars := _options.Filter(func(item base.Option) bool {
 		if _, ok := item.Value().(*network.Registrar); ok {
 			return true
@@ -49,6 +53,7 @@ func (app *application) init(options ...base.Option) {
 	}); len(registrars) > 0 {
 		app.networkRegistrar = registrars[len(registrars)-1].Value().(*network.Registrar)
 	}
+
 	if registrars := _options.Filter(func(item base.Option) bool {
 		if _, ok := item.Value().(*object.Registrar); ok {
 			return true
@@ -57,12 +62,23 @@ func (app *application) init(options ...base.Option) {
 	}); len(registrars) > 0 {
 		app.objectRegistrar = registrars[len(registrars)-1].Value().(*object.Registrar)
 	}
+
+	if agents := _options.Filter(func(item base.Option) bool {
+		if _, ok := item.Value().(*command.Agent); ok {
+			return true
+		}
+		return false
+	}); len(agents) > 0 {
+		app.commandAgent = agents[len(agents)-1].Value().(*command.Agent)
+	}
+
 	app.appendServices(_options.Filter(func(item base.Option) bool {
 		if _, ok := item.Value().(service.Interface); ok {
 			return true
 		}
 		return false
 	}).Values()...)
+
 	app.appendSignalHandlersMap(_options.Filter(func(item base.Option) bool {
 		if _, ok := item.Value().(signal.HandlersMap); ok {
 			return true
@@ -105,6 +121,11 @@ func (app *application) Start(ctx context.Context, options ...base.Option) error
 	}
 
 	app.init(options...)
+
+	if app.commandAgent != nil && app.commandAgent.MustRun() {
+		return app.commandAgent.Run(ctx, os.Args)
+	}
+
 	if len(app.services) == 0 {
 		return fmt.Errorf("application has no service to run")
 	}
