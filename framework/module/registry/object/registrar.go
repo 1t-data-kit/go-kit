@@ -48,10 +48,12 @@ func (r *Registrar) Bind(target ...interface{}) error {
 }
 
 func (r *Registrar) BindTarget(target interface{}, chain ...reflect.Value) error {
-	value := reflect.Indirect(reflect.ValueOf(target))
+	value := reflect.ValueOf(target)
 	if value.IsNil() {
 		return nil
 	}
+
+	value = reflect.Indirect(value)
 	if chains(chain).Exists(value) {
 		return nil
 	}
