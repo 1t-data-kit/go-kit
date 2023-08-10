@@ -3,7 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
-	"github.com/1t-data-kit/go-kit/framework/module"
+	"github.com/1t-data-kit/go-kit/base"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	etcdClient "go.etcd.io/etcd/client/v3"
@@ -60,7 +60,7 @@ func (r *Registrar) getHalfTTLSeconds() time.Duration {
 	return time.Duration(timeout) * time.Second
 }
 
-func (r *Registrar) Register(ctx context.Context, module module.Module) {
+func (r *Registrar) Register(ctx context.Context, module base.Module) {
 	if module == nil {
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
-	"github.com/1t-data-kit/go-kit/framework/module"
 	"github.com/1t-data-kit/go-kit/framework/module/registry/network"
 	"github.com/1t-data-kit/go-kit/framework/module/registry/object"
 	signalLib "github.com/1t-data-kit/go-kit/framework/module/signal"
@@ -20,7 +19,7 @@ var (
 )
 
 type application struct {
-	modules           []module.Module
+	modules           []base.Module
 	signalHandlersMap signalLib.HandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
@@ -58,7 +57,7 @@ func (app *application) init(options ...base.Option) {
 		app.objectRegistrar = registrars[len(registrars)-1].Value().(*object.Registrar)
 	}
 	app.appendModels(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(module.Module); ok {
+		if _, ok := item.Value().(base.Module); ok {
 			return true
 		}
 		return false
@@ -73,7 +72,7 @@ func (app *application) init(options ...base.Option) {
 
 func (app *application) appendModels(modules ...interface{}) *application {
 	for _, _module := range modules {
-		if __module, ok := _module.(module.Module); ok {
+		if __module, ok := _module.(base.Module); ok {
 			app.modules = append(app.modules, __module)
 		}
 	}
