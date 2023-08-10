@@ -2,6 +2,7 @@ package object
 
 import (
 	"fmt"
+	"github.com/1t-data-kit/go-kit/base"
 	"github.com/pkg/errors"
 	"reflect"
 )
@@ -14,6 +15,10 @@ func NewRegistrar() *Registrar {
 	return &Registrar{
 		data: map[string]interface{}{},
 	}
+}
+
+func NewRegistrarOption(registrar *Registrar) base.Option {
+	return base.NewOption(registrar)
 }
 
 func (r *Registrar) Register(objects ...interface{}) error {

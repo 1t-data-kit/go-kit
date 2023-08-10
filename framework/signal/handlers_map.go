@@ -1,23 +1,28 @@
-package base
+package signal
 
 import (
 	"context"
+	"github.com/1t-data-kit/go-kit/base"
 	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 )
 
-type SignalHandler func(ctx context.Context) error
-type SignalHandlersMap map[os.Signal][]SignalHandler
+type Handler func(ctx context.Context) error
+type HandlersMap map[os.Signal][]Handler
 
-func (_map SignalHandlersMap) Append(signal os.Signal, handlers ...SignalHandler) {
+func NewHandlersMapOption(_map HandlersMap) base.Option {
+	return base.NewOption(_map)
+}
+
+func (_map HandlersMap) Append(signal os.Signal, handlers ...Handler) {
 	if _, exists := _map[signal]; !exists {
-		_map[signal] = make([]SignalHandler, 0, len(handlers))
+		_map[signal] = make([]Handler, 0, len(handlers))
 	}
 	_map[signal] = append(_map[signal], handlers...)
 }
 
-func (_map SignalHandlersMap) Signals() []os.Signal {
+func (_map HandlersMap) Signals() []os.Signal {
 	var signals []os.Signal
 	for _signal := range _map {
 		signals = append(signals, _signal)
@@ -25,13 +30,13 @@ func (_map SignalHandlersMap) Signals() []os.Signal {
 	return signals
 }
 
-func (_map SignalHandlersMap) Invoke(ctx context.Context, signal os.Signal) error {
+func (_map HandlersMap) Invoke(ctx context.Context, signal os.Signal) error {
 	handlers, exists := _map[signal]
 	if !exists {
 		return nil
 	}
 
-	_errors := NewErrors()
+	_errors := base.NewErrors()
 	for _, handler := range handlers {
 		if err := handler(ctx); err != nil {
 			_errors.Append(err)
@@ -41,7 +46,7 @@ func (_map SignalHandlersMap) Invoke(ctx context.Context, signal os.Signal) erro
 	return _errors.Error()
 }
 
-func (_map SignalHandlersMap) Listen(ctx context.Context) {
+func (_map HandlersMap) Listen(ctx context.Context) {
 	if len(_map) == 0 {
 		return
 	}

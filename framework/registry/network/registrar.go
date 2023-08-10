@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
+	"github.com/1t-data-kit/go-kit/framework/service"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	etcdClient "go.etcd.io/etcd/client/v3"
@@ -33,6 +34,10 @@ func NewRegistrar(etcd *etcdClient.Client) *Registrar {
 	}
 }
 
+func NewRegistrarOption(registrar *Registrar) base.Option {
+	return base.NewOption(registrar)
+}
+
 func (r *Registrar) SetTTl(seconds int64) *Registrar {
 	r.ttl = seconds
 	return r
@@ -60,7 +65,7 @@ func (r *Registrar) getHalfTTLSeconds() time.Duration {
 	return time.Duration(timeout) * time.Second
 }
 
-func (r *Registrar) Register(ctx context.Context, services ...base.Service) {
+func (r *Registrar) Register(ctx context.Context, services ...service.Service) {
 	if len(services) == 0 {
 		return
 	}

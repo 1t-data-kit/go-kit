@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
 	"github.com/1t-data-kit/go-kit/framework"
+	"github.com/1t-data-kit/go-kit/framework/signal"
 	"github.com/sirupsen/logrus"
 	"syscall"
 	"time"
@@ -41,15 +42,15 @@ func (_a *a) MustRegisterNetwork() bool {
 	return true
 }
 
-func (_a *a) SignalHandlersMap() base.SignalHandlersMap {
-	return base.SignalHandlersMap{
-		syscall.SIGTERM: []base.SignalHandler{
+func (_a *a) SignalHandlersMap() signal.HandlersMap {
+	return signal.HandlersMap{
+		syscall.SIGTERM: []signal.Handler{
 			func(ctx context.Context) error {
 				fmt.Printf("%s[%s] sigterm\n", _a.Name(), _a.Type())
 				return nil
 			},
 		},
-		syscall.SIGQUIT: []base.SignalHandler{
+		syscall.SIGQUIT: []signal.Handler{
 			func(ctx context.Context) error {
 				fmt.Printf("%s[%s] siqquit\n", _a.Name(), _a.Type())
 				return nil
@@ -59,8 +60,8 @@ func (_a *a) SignalHandlersMap() base.SignalHandlersMap {
 }
 
 func main() {
-	app := framework.NewApplication(base.NewOption(newA("a1")), base.NewOption(newA("a2")), base.NewOption(newA("a3")), base.NewOption(base.SignalHandlersMap{
-		syscall.SIGTERM: []base.SignalHandler{
+	app := framework.NewApplication(base.NewOption(newA("a1")), base.NewOption(newA("a2")), base.NewOption(newA("a3")), base.NewOption(signal.HandlersMap{
+		syscall.SIGTERM: []signal.Handler{
 			func(ctx context.Context) error {
 				logrus.Info("application outside sigterm invoke")
 				return nil

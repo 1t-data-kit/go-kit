@@ -6,6 +6,8 @@ import (
 	"github.com/1t-data-kit/go-kit/base"
 	"github.com/1t-data-kit/go-kit/framework/registry/network"
 	"github.com/1t-data-kit/go-kit/framework/registry/object"
+	"github.com/1t-data-kit/go-kit/framework/service"
+	"github.com/1t-data-kit/go-kit/framework/signal"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -18,8 +20,8 @@ var (
 )
 
 type application struct {
-	services          []base.Service
-	signalHandlersMap base.SignalHandlersMap
+	services          []service.Service
+	signalHandlersMap signal.HandlersMap
 	networkRegistrar  *network.Registrar
 	objectRegistrar   *object.Registrar
 
@@ -29,7 +31,7 @@ type application struct {
 func NewApplication(options ...base.Option) *application {
 	_once.Do(func() {
 		_instance = &application{
-			signalHandlersMap: make(base.SignalHandlersMap),
+			signalHandlersMap: make(signal.HandlersMap),
 		}
 	})
 
@@ -56,13 +58,13 @@ func (app *application) init(options ...base.Option) {
 		app.objectRegistrar = registrars[len(registrars)-1].Value().(*object.Registrar)
 	}
 	app.appendServices(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(base.Service); ok {
+		if _, ok := item.Value().(service.Service); ok {
 			return true
 		}
 		return false
 	}).Values()...)
 	app.appendSignalHandlersMap(_options.Filter(func(item base.Option) bool {
-		if _, ok := item.Value().(base.SignalHandlersMap); ok {
+		if _, ok := item.Value().(signal.HandlersMap); ok {
 			return true
 		}
 		return false
@@ -70,9 +72,9 @@ func (app *application) init(options ...base.Option) {
 }
 
 func (app *application) appendServices(services ...interface{}) *application {
-	for _, service := range services {
-		if _service, ok := service.(base.Service); ok {
-			app.services = append(app.services, _service)
+	for _, _service := range services {
+		if __service, ok := _service.(service.Service); ok {
+			app.services = append(app.services, __service)
 		}
 	}
 	return app
@@ -80,7 +82,7 @@ func (app *application) appendServices(services ...interface{}) *application {
 
 func (app *application) appendSignalHandlersMap(signalsMaps ...interface{}) *application {
 	for _, signalsMap := range signalsMaps {
-		if _signalsMap, ok := signalsMap.(base.SignalHandlersMap); ok {
+		if _signalsMap, ok := signalsMap.(signal.HandlersMap); ok {
 			for _signal, handlers := range _signalsMap {
 				app.signalHandlersMap.Append(_signal, handlers...)
 			}
@@ -109,21 +111,21 @@ func (app *application) Start(ctx context.Context, options ...base.Option) error
 
 	var group *errgroup.Group
 	group, ctx = errgroup.WithContext(ctx)
-	for _, service := range app.services {
-		_service := service
+	for _, _service := range app.services {
+		__service := _service
 		group.Go(func() error {
-			logrus.Infof("application start service: %s[%s]", _service.Name(), _service.Type())
-			if err := _service.Start(ctx); err != nil {
+			logrus.Infof("application start service: %s[%s]", __service.Name(), __service.Type())
+			if err := __service.Start(ctx); err != nil {
 				return err
 			}
-			logrus.Infof("application stop service: %s[%s]", _service.Name(), _service.Type())
+			logrus.Infof("application stop service: %s[%s]", __service.Name(), __service.Type())
 			return nil
 		})
 
-		app.appendSignalHandlersMap(_service.SignalHandlersMap())
-		if app.networkRegistrar != nil && _service.MustRegisterNetwork() {
-			app.networkRegistrar.Register(ctx, _service)
-			logrus.Infof("application.NetworkRegistrar register service %s[%s]", _service.Name(), _service.Type())
+		app.appendSignalHandlersMap(__service.SignalHandlersMap())
+		if app.networkRegistrar != nil && __service.MustRegisterNetwork() {
+			app.networkRegistrar.Register(ctx, __service)
+			logrus.Infof("application.NetworkRegistrar register service %s[%s]", __service.Name(), __service.Type())
 		}
 	}
 	app.signalHandlersMap.Listen(ctx)

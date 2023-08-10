@@ -1,14 +1,15 @@
-package base
+package service
 
 import (
 	"context"
+	"github.com/1t-data-kit/go-kit/framework/signal"
 )
 
 type Service interface {
 	Name() string
 	Type() string
 	MustRegisterNetwork() bool
-	SignalHandlersMap() SignalHandlersMap
+	SignalHandlersMap() signal.HandlersMap
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 }
