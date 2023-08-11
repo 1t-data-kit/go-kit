@@ -53,7 +53,7 @@ func (agent *Agent) Run(ctx context.Context, arguments []string) error {
 			},
 			&cli.BoolFlag{
 				Name:  debugFlag,
-				Value: true,
+				Value: false,
 			},
 		},
 	}
