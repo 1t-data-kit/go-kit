@@ -6,7 +6,6 @@ import (
 	"github.com/1t-data-kit/go-kit/base"
 	"github.com/1t-data-kit/go-kit/framework"
 	"github.com/1t-data-kit/go-kit/framework/signal"
-	"github.com/sirupsen/logrus"
 	"syscall"
 	"time"
 )
@@ -60,15 +59,8 @@ func (_a *a) SignalHandlersMap() signal.HandlersMap {
 }
 
 func main() {
-	app := framework.NewApplication(base.NewOption(newA("a1")), base.NewOption(newA("a2")), base.NewOption(newA("a3")), base.NewOption(signal.HandlersMap{
-		syscall.SIGTERM: []signal.Handler{
-			func(ctx context.Context) error {
-				logrus.Info("application outside sigterm invoke")
-				return nil
-			},
-		},
-	}))
-	if err := app.Start(context.Background()); err != nil {
+	app := framework.NewApplication()
+	if err := app.Start(context.Background(), base.NewOption(newA("aa"))); err != nil {
 		panic(err)
 	}
 	app.Stop(context.Background())

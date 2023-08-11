@@ -18,7 +18,7 @@ func TestGet(t *testing.T) {
 		"http://mashineadmin.unionscreens.com/api/device/v1/queryDevices3?pageNum=2&pageSize=2",
 		WithTrace(tr),
 		WithContentType("text/html"),
-		WithResponseData(&response),
+		WithData(&response),
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestPOST(t *testing.T) {
 		},
 		//[]byte{1, 2, 3, 4, 5},
 		WithTrace(tr),
-		WithResponseData(&response),
+		WithData(&response),
 	); err != nil {
 		t.Fatal(err)
 	}

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"io/ioutil"
+	"github.com/1t-data-kit/go-kit/base"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -13,331 +13,218 @@ import (
 	"time"
 )
 
-type OptionType int32
+type ClientWrapper func(client *http.Client, trace Trace)
+type RequestWrapper func(request *http.Request, trace Trace) error
+type ResponseWrapper func(response *http.Response, trace Trace) error
 
-const (
-	OptionTypeClient = OptionType(iota + 1)
-	OptionTypeRequest
-	OptionTypeResponse
-	OptionTypeLog
-)
-
-type Option struct {
-	Type     OptionType `json:"type"`
-	trace    trace
-	Client   func(client *http.Client)
-	Request  func(request *http.Request, trace trace) error
-	Response func(response *http.Response, trace trace) error
-}
-
-/*
- * duration is time.Millisecond
- */
-func WithTimeout(duration time.Duration) Option {
-	return Option{
-		Type: OptionTypeClient,
-		Client: func(client *http.Client) {
-			client.Timeout = duration
-		},
+func WithTimeout(timeoutMillisecond int64) base.Option {
+	var wrapper ClientWrapper = func(client *http.Client, trace Trace) {
+		client.Timeout = time.Duration(timeoutMillisecond) * time.Millisecond
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithContentType(typ string) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Header.Set("Content-Type", typ)
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-			}
-			return nil
-		},
+func WithContentType(typ string) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		request.Header.Set("Content-Type", typ)
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+		}
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithAuthorization(authorization string) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Header.Set("Authorization", authorization)
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-			}
-			return nil
-		},
+func WithAuthorization(authorization string) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		request.Header.Set("Authorization", authorization)
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+		}
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithNoBody() Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-			}
-			return nil
-		},
+func WithEmptyBody() base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+		}
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithUrlQuery(query string) Option {
-	logrus.Debug(query)
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			values := url.Values{}
-			for _, kv := range strings.Split(query, "&") {
-				k := kv
-				v := ""
-				sep := strings.Index(kv, "=")
-				if sep > -1 {
-					k = kv[0:sep]
-					v = kv[sep+1:]
-				}
-				values.Add(k, v)
+func WithQuery(query string) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		values := url.Values{}
+		for _, kv := range strings.Split(query, "&") {
+			k := kv
+			v := ""
+			sep := strings.Index(kv, "=")
+			if sep > -1 {
+				k = kv[0:sep]
+				v = kv[sep+1:]
 			}
-			request.URL.RawQuery = values.Encode()
+			values.Add(k, v)
+		}
+		request.URL.RawQuery = values.Encode()
 
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-			}
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+		}
 
-			return nil
-		},
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithBody(source map[string]interface{}) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+func WithBody(source map[string]interface{}) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-			values := url.Values{}
-			for k, v := range source {
-				values.Add(k, getString(v))
-			}
-			valueString := values.Encode()
-			request.Body = ioutil.NopCloser(strings.NewReader(valueString))
+		values := url.Values{}
+		for k, v := range source {
+			values.Add(k, base.AssertString(v))
+		}
+		valueString := values.Encode()
+		request.Body = io.NopCloser(strings.NewReader(valueString))
 
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-				trace.SetRequest(valueString)
-			}
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+			trace.SetRequest(valueString)
+		}
 
-			return nil
-		},
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithEscapeJSONBody(source interface{}) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Header.Set("Content-Type", "application/json")
-
-			body, _ := json.Marshal(source)
-			request.Body = ioutil.NopCloser(bytes.NewReader(body))
-
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-				trace.SetRequest(string(body))
+func WithJSONBody(source interface{}, opt ...base.Option) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		mustEscape := false
+		if opts := base.Options(opt).Filter(func(item base.Option) bool {
+			if _, ok := item.Value().(bool); ok {
+				return true
 			}
+			return false
+		}); len(opts) > 0 {
+			mustEscape = opts[0].Value().(bool)
+		}
+		request.Header.Set("Content-Type", "application/json")
 
-			return nil
-		},
+		buf := bytes.NewBuffer([]byte{})
+		encoder := json.NewEncoder(buf)
+		encoder.SetEscapeHTML(mustEscape)
+		if err := encoder.Encode(source); err != nil {
+			return err
+		}
+
+		body := buf.Bytes()
+		request.Body = io.NopCloser(bytes.NewReader(body))
+
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+			trace.SetRequest(string(body))
+		}
+
+		return nil
 	}
+	return base.NewOption(wrapper)
 }
 
-func WithJSONBody(source interface{}) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Header.Set("Content-Type", "application/json")
+func WithMultipartBody(source map[string]interface{}, file map[string][]byte) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		buff := &bytes.Buffer{}
+		writer := multipart.NewWriter(buff)
+		defer writer.Close()
 
-			buf := bytes.NewBuffer([]byte{})
-			encoder := json.NewEncoder(buf)
-			encoder.SetEscapeHTML(false)
-			if err := encoder.Encode(source); err != nil {
+		fileInfo := make([]string, len(file))
+		for name, content := range file {
+			fileWriter, err := writer.CreateFormFile(name, name)
+			if err != nil {
 				return err
 			}
-
-			body := buf.Bytes()
-			request.Body = ioutil.NopCloser(bytes.NewReader(body))
-
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-				trace.SetRequest(string(body))
+			if _, err = fileWriter.Write(content); err != nil {
+				return err
 			}
-
-			return nil
-		},
-	}
-}
-
-func WithMultipartBody(source map[string]interface{}, file map[string][]byte) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			buff := &bytes.Buffer{}
-			writer := multipart.NewWriter(buff)
-			defer writer.Close()
-
-			fileInfo := make([]string, len(file))
-			for name, content := range file {
-				fileWriter, err := writer.CreateFormFile(name, name)
-				if err != nil {
-					return err
-				}
-				if _, err = fileWriter.Write(content); err != nil {
-					return err
-				}
-				fileInfo = append(fileInfo, fmt.Sprintf("(Binary[%s][%d bytes])", name, len(content)))
-			}
-			for field, value := range source {
-				writer.WriteField(field, getString(value))
-			}
-
-			request.Body = ioutil.NopCloser(buff)
-			request.Header.Set("Content-Type", writer.FormDataContentType())
-
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-				trace.SetRequest(getStrings(",", source, strings.Join(fileInfo, "")))
-			}
-
-			return nil
-		},
-	}
-}
-
-func WithBinaryBody(file []byte) Option {
-	return Option{
-		Type: OptionTypeRequest,
-		Request: func(request *http.Request, trace trace) error {
-			request.Body = ioutil.NopCloser(bytes.NewReader(file))
-			request.Header.Set("Content-Type", "application/octet-stream")
-
-			if trace != nil {
-				trace.SetUrl(request.URL.String())
-				trace.SetHeader(getString(request.Header))
-				trace.SetRequest(fmt.Sprintf("(Binary[%d bytes])", len(file)))
-			}
-
-			return nil
-		},
-	}
-}
-
-func WithTrace(trace trace) Option {
-	return Option{
-		Type:  OptionTypeLog,
-		trace: trace,
-	}
-}
-
-func WithResponseData(data *string) Option {
-	return Option{
-		Type: OptionTypeResponse,
-		Response: func(response *http.Response, trace trace) error {
-			body, _ := ioutil.ReadAll(response.Body)
-			bodyString := string(body)
-			if data != nil {
-				*data = bodyString
-			}
-			if trace != nil {
-				trace.SetHttpCode(response.StatusCode)
-				trace.SetResponse(bodyString)
-			}
-			return nil
-		},
-	}
-}
-
-func WithResponseJSONData(data interface{}) Option {
-	return Option{
-		Type: OptionTypeResponse,
-		Response: func(response *http.Response, trace trace) error {
-			body, _ := ioutil.ReadAll(response.Body)
-			if trace != nil {
-				trace.SetHttpCode(response.StatusCode)
-				trace.SetResponse(string(body))
-			}
-			if data != nil {
-				if err := json.Unmarshal(body, &data); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		},
-	}
-}
-
-type optionList []Option
-
-func (list optionList) Client() *http.Client {
-	client := &http.Client{}
-	for _, option := range list {
-		if option.Type != OptionTypeClient {
-			continue
+			fileInfo = append(fileInfo, fmt.Sprintf("(Binary[%s][%d bytes])", name, len(content)))
 		}
-		option.Client(client)
+		for field, value := range source {
+			writer.WriteField(field, base.AssertString(value))
+		}
+
+		request.Body = io.NopCloser(buff)
+		request.Header.Set("Content-Type", writer.FormDataContentType())
+
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+			trace.SetRequest(base.AssertStrings(",", source, strings.Join(fileInfo, "")))
+		}
+
+		return nil
 	}
-	return client
+	return base.NewOption(wrapper)
 }
 
-func (list optionList) Request(request *http.Request) error {
-	stat := false
-	t := list.Trace()
-	for _, option := range list {
-		if option.Type != OptionTypeRequest {
-			continue
-		}
-		stat = true
-		if err := option.Request(request, t); err != nil {
-			return err
-		}
-	}
-	if !stat {
-		WithNoBody().Request(request, t)
-	}
+func WithBinaryBody(file []byte) base.Option {
+	var wrapper RequestWrapper = func(request *http.Request, trace Trace) error {
+		request.Body = io.NopCloser(bytes.NewReader(file))
+		request.Header.Set("Content-Type", "application/octet-stream")
 
-	return nil
+		if !traceIsNil(trace) {
+			trace.SetUrl(request.URL.String())
+			trace.SetHeader(base.AssertString(request.Header))
+			trace.SetRequest(fmt.Sprintf("(Binary[%d bytes])", len(file)))
+		}
+
+		return nil
+	}
+	return base.NewOption(wrapper)
 }
 
-func (list optionList) Response(response *http.Response) error {
-	stat := false
-	t := list.Trace()
-	for _, option := range list {
-		if option.Type != OptionTypeResponse {
-			continue
+func WithData(data *string) base.Option {
+	var wrapper ResponseWrapper = func(response *http.Response, trace Trace) error {
+		body, _ := io.ReadAll(response.Body)
+		bodyString := string(body)
+		if data != nil {
+			*data = bodyString
 		}
-		stat = true
-		if err := option.Response(response, t); err != nil {
-			return err
+		if !traceIsNil(trace) {
+			trace.SetHttpCode(response.StatusCode)
+			trace.SetResponse(bodyString)
 		}
+		return nil
 	}
-	if !stat {
-		WithResponseData(nil).Response(response, t)
-	}
-	return nil
+	return base.NewOption(wrapper)
 }
 
-func (list optionList) Trace() trace {
-	for _, option := range list {
-		if option.Type != OptionTypeLog || option.trace == nil {
-			continue
+func WithJsonData(data interface{}) base.Option {
+	var wrapper ResponseWrapper = func(response *http.Response, trace Trace) error {
+		body, _ := io.ReadAll(response.Body)
+		if !traceIsNil(trace) {
+			trace.SetHttpCode(response.StatusCode)
+			trace.SetResponse(string(body))
 		}
-		return option.trace
+		if data != nil {
+			if err := json.Unmarshal(body, &data); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
-	return nil
+	return base.NewOption(wrapper)
+}
+
+func WithTrace(trace Trace) base.Option {
+	return base.NewOption(trace)
 }
