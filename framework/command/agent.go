@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/1t-data-kit/go-kit/base"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"os"
 )
@@ -44,6 +45,10 @@ func (agent *Agent) AppendWrappers(wrappers ...*Wrapper) {
 }
 
 func (agent *Agent) Run(ctx context.Context, arguments []string) error {
+	if agent.MustDebug() {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	app := &cli.App{
 		Commands: make([]*cli.Command, 0),
 		Flags: []cli.Flag{
@@ -57,7 +62,6 @@ func (agent *Agent) Run(ctx context.Context, arguments []string) error {
 			},
 		},
 	}
-
 	for _, wrapper := range agent.wrappers {
 		app.Commands = append(app.Commands, wrapper.cliCommand())
 	}
