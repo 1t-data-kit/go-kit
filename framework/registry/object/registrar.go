@@ -22,6 +22,9 @@ func NewRegistrarOption(registrar *Registrar) base.Option {
 }
 
 func (r *Registrar) Register(objects ...interface{}) error {
+	if r == nil {
+		return fmt.Errorf("object.Registrar has be nil")
+	}
 	objectsLen := len(objects)
 	if objectsLen%2 != 0 {
 		return fmt.Errorf("arguments must be key,value,key,value... ")
@@ -41,6 +44,9 @@ func (r *Registrar) Register(objects ...interface{}) error {
 }
 
 func (r *Registrar) Bind(target ...interface{}) error {
+	if r == nil {
+		return fmt.Errorf("object.Registrar has be nil")
+	}
 	if len(target) == 0 {
 		return nil
 	}
@@ -53,6 +59,9 @@ func (r *Registrar) Bind(target ...interface{}) error {
 }
 
 func (r *Registrar) BindTarget(target interface{}, chain ...reflect.Value) error {
+	if r == nil {
+		return fmt.Errorf("object.Registrar has be nil")
+	}
 	value := reflect.ValueOf(target)
 	if value.IsNil() {
 		return nil
